@@ -42,8 +42,8 @@ namespace TP.ConcurrentProgramming.Data
             double newX = PositionBackingField.x + delta.x * scale;
             double newY = PositionBackingField.y + delta.y * scale;
             double diameter = 2 * Radius;
-            double maxX = 396.0 - diameter; 
-            double maxY = 416.0 - diameter;
+            double maxX = 392.0 - diameter; 
+            double maxY = 412.0 - diameter;
             Vector newVelocity = (Vector)Velocity;
 
             if (newX < 0)
