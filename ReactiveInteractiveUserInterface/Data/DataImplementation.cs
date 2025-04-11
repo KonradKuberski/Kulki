@@ -34,17 +34,17 @@ namespace TP.ConcurrentProgramming.Data
             // Lista wszystkich możliwych kombinacji prędkości (do przemyślenia)
             Vector[] possibleVelocities = new Vector[]
             {
-             new Vector(15.0, 7.5),    
-             new Vector(-15.0, -7.5), 
-             new Vector(15.0, -7.5),   
-             new Vector(-15.0, 7.5),  
-             new Vector(7.5, 15.0),    
-             new Vector(-7.5, -15.0),  
-             new Vector(7.5, -15.0),  
-             new Vector(-7.5, 15.0)    
+             new Vector(90.0, 45.0),    
+             new Vector(-90.0, -45.0), 
+             new Vector(90.0, -45.0),   
+             new Vector(-90.0, 45.0),  
+             new Vector(90.0, 45.0),    
+             new Vector(-45.0, -90.0),  
+             new Vector(45.0, -90.0),  
+             new Vector(-45.0, 90.0)    
             };
 
-            for (int i = 0; i < numberOfBalls; i++)
+            for (int i = 0; i < numberOfBalls; i++) // Tworzenie kulek, losowanie pozycji i prędkości startowej 
             {
                 Vector startingPosition = new(random.Next(100, 300), random.Next(100, 320)); 
                 Vector initialVelocity = possibleVelocities[random.Next(possibleVelocities.Length)];

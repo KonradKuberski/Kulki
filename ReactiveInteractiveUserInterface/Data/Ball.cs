@@ -42,35 +42,34 @@ namespace TP.ConcurrentProgramming.Data
             double newX = PositionBackingField.x + delta.x * scale;
             double newY = PositionBackingField.y + delta.y * scale;
             double diameter = 2 * Radius;
-            double maxX = 392.0 - diameter; 
+            double maxX = 392.0 - diameter; // Ramka ma 400 na 420
             double maxY = 412.0 - diameter;
             Vector newVelocity = (Vector)Velocity;
 
-            if (newX < 0)
+            if (newX < 0) // Jeśli nowa pozycja kulki wychodziłaby za lewą ściankę, zmieniamy kierunek prędkości, żeby kulka się odbiła
             {
-                newX = 0;
+                newX = 0; // I ustawiamy pozycje tu na 0 lub na max w zależności od ścianki
                 newVelocity = new Vector(-newVelocity.x, newVelocity.y);
             }
-            else if (newX > maxX)
+            else if (newX > maxX) // Tak samo, tylko dla prawej ścianki
             {
                 newX = maxX;
                 newVelocity = new Vector(-newVelocity.x, newVelocity.y);
             }
 
-            if (newY < 0)
+            if (newY < 0) // Dla dolnej ścianki
             {
                 newY = 0;
                 newVelocity = new Vector(newVelocity.x, -newVelocity.y);
             }
-            else if (newY > maxY)
+            else if (newY > maxY) // Dla górnej ścianki
             {
                 newY = maxY;
                 newVelocity = new Vector(newVelocity.x, -newVelocity.y);
             }
 
-            PositionBackingField = new Vector(newX, newY);
+            UpdatePosition(new Vector(newX, newY)); // Aktualizacja pozycji i prędkości
             Velocity = newVelocity;
-            RaiseNewPositionChangeNotification();
         }
 
         internal void UpdatePosition(Vector newPosition)
