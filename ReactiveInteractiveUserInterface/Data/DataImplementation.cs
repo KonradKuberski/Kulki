@@ -88,7 +88,7 @@ namespace TP.ConcurrentProgramming.Data
         {
             HandleCollisions();
 
-            foreach (Ball item in BallsList)
+            foreach (Ball item in BallsList.ToList()) // Iterujemy po kopii listy
             {
                 item.Move((Vector)item.Velocity);
             }

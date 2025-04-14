@@ -9,14 +9,28 @@
 
 using System;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
+using System.Windows.Input;
 using TP.ConcurrentProgramming.Presentation.Model;
 using TP.ConcurrentProgramming.Presentation.ViewModel.MVVMLight;
 using ModelIBall = TP.ConcurrentProgramming.Presentation.Model.IBall;
 
 namespace TP.ConcurrentProgramming.Presentation.ViewModel
 {
-    public class MainWindowViewModel : ViewModelBase, IDisposable
+    public class MainWindowViewModel : ViewModelBase, IDisposable, INotifyPropertyChanged
     {
+        #region INotifyPropertyChanged
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        private void RaisePropertyChanged([CallerMemberName] string propertyName = "")
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        #endregion INotifyPropertyChanged
+
         #region ctor
 
         public MainWindowViewModel() : this(null)
@@ -25,20 +39,63 @@ namespace TP.ConcurrentProgramming.Presentation.ViewModel
         internal MainWindowViewModel(ModelAbstractApi modelLayerAPI)
         {
             ModelLayer = modelLayerAPI == null ? ModelAbstractApi.CreateModel() : modelLayerAPI;
+            Observer?.Dispose(); // Upewnij się, że poprzednia subskrypcja jest usuwana
             Observer = ModelLayer.Subscribe<ModelIBall>(x => Balls.Add(x));
+            StartGameCommand = new StartGameCommandImplementation(this);
         }
 
         #endregion ctor
 
         #region public API
 
+        private int _initialBallCount = 5;
+        public int InitialBallCount
+        {
+            get => _initialBallCount;
+            set
+            {
+                if (_initialBallCount != value)
+                {
+                    _initialBallCount = value;
+                    RaisePropertyChanged();
+                }
+            }
+        }
+
+        public ICommand StartGameCommand { get; }
+
+        private class StartGameCommandImplementation : ICommand // Zmiana nazwy klasy
+        {
+            private readonly MainWindowViewModel _viewModel;
+
+            public StartGameCommandImplementation(MainWindowViewModel viewModel)
+            {
+                _viewModel = viewModel;
+            }
+
+            public event EventHandler CanExecuteChanged;
+
+            public bool CanExecute(object parameter) => true;
+
+            public void Execute(object parameter)
+            {
+                if (_viewModel.Disposed)
+                    throw new ObjectDisposedException(nameof(MainWindowViewModel));
+                _viewModel.Balls.Clear();
+                _viewModel.ModelLayer.Start(_viewModel.InitialBallCount);
+                _viewModel.Observer?.Dispose();
+                _viewModel.Observer = _viewModel.ModelLayer.Subscribe<ModelIBall>(x => _viewModel.Balls.Add(x));
+            }
+        }
+
         public void Start(int numberOfBalls)
         {
             if (Disposed)
                 throw new ObjectDisposedException(nameof(MainWindowViewModel));
+            Balls.Clear(); // Opcjonalnie: wyczyść kolekcję, jeśli chcesz zaczynać od zera
             ModelLayer.Start(numberOfBalls);
-            Observer.Dispose();
         }
+
         public ObservableCollection<ModelIBall> Balls { get; } = new ObservableCollection<ModelIBall>();
 
         #endregion public API
@@ -52,12 +109,9 @@ namespace TP.ConcurrentProgramming.Presentation.ViewModel
                 if (disposing)
                 {
                     Balls.Clear();
-                    Observer.Dispose();
+                    Observer?.Dispose();
                     ModelLayer.Dispose();
                 }
-
-                // TODO: free unmanaged resources (unmanaged objects) and override finalizer
-                // TODO: set large fields to null
                 Disposed = true;
             }
         }
@@ -77,7 +131,7 @@ namespace TP.ConcurrentProgramming.Presentation.ViewModel
         private IDisposable Observer = null;
         private ModelAbstractApi ModelLayer;
         private bool Disposed = false;
-
+ 
         #endregion private
     }
 }
