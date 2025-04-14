@@ -9,7 +9,6 @@
 
 using System;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using TP.ConcurrentProgramming.Presentation.Model;
 using TP.ConcurrentProgramming.Presentation.ViewModel.MVVMLight;
 using ModelIBall = TP.ConcurrentProgramming.Presentation.Model.IBall;
@@ -26,14 +25,7 @@ namespace TP.ConcurrentProgramming.Presentation.ViewModel
         internal MainWindowViewModel(ModelAbstractApi modelLayerAPI)
         {
             ModelLayer = modelLayerAPI == null ? ModelAbstractApi.CreateModel() : modelLayerAPI;
-            Observer = ModelLayer.Subscribe<ModelIBall>(x =>
-            {
-                if (!Disposed)
-                {
-                    Debug.WriteLine($"Dodaję kulkę: Top={x.Top}, Left={x.Left}, Diameter={x.Diameter}");
-                    Balls.Add(x);
-                }
-            });
+            Observer = ModelLayer.Subscribe<ModelIBall>(x => Balls.Add(x));
         }
 
         #endregion ctor
@@ -44,13 +36,9 @@ namespace TP.ConcurrentProgramming.Presentation.ViewModel
         {
             if (Disposed)
                 throw new ObjectDisposedException(nameof(MainWindowViewModel));
-            if (numberOfBalls <= 0)
-                throw new ArgumentException("Liczba kulek musi być większa od 0.", nameof(numberOfBalls));
-
-            Debug.WriteLine($"Uruchamiam symulację z {numberOfBalls} kulkami");
             ModelLayer.Start(numberOfBalls);
+            Observer.Dispose();
         }
-
         public ObservableCollection<ModelIBall> Balls { get; } = new ObservableCollection<ModelIBall>();
 
         #endregion public API
@@ -64,8 +52,8 @@ namespace TP.ConcurrentProgramming.Presentation.ViewModel
                 if (disposing)
                 {
                     Balls.Clear();
-                    Observer?.Dispose();
-                    ModelLayer?.Dispose();
+                    Observer.Dispose();
+                    ModelLayer.Dispose();
                 }
 
                 // TODO: free unmanaged resources (unmanaged objects) and override finalizer

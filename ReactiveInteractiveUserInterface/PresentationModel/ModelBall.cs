@@ -21,9 +21,8 @@ namespace TP.ConcurrentProgramming.Presentation.Model
     {
         public ModelBall(double top, double left, LogicIBall underneathBall)
         {
-            TopBackingField = Math.Clamp(top, 0, 380); // 420 - Diameter (20) - margines
-            LeftBackingField = Math.Clamp(left, 0, 380); // 400 - Diameter (20) - margines
-            Diameter = 20;
+            TopBackingField = top;
+            LeftBackingField = left;
             underneathBall.NewPositionNotification += NewPositionNotification;
         }
 
@@ -36,7 +35,7 @@ namespace TP.ConcurrentProgramming.Presentation.Model
             {
                 if (TopBackingField == value)
                     return;
-                TopBackingField = Math.Clamp(value, 0, 380);
+                TopBackingField = value;
                 RaisePropertyChanged();
             }
         }
@@ -48,12 +47,12 @@ namespace TP.ConcurrentProgramming.Presentation.Model
             {
                 if (LeftBackingField == value)
                     return;
-                LeftBackingField = Math.Clamp(value, 0, 380);
+                LeftBackingField = value;
                 RaisePropertyChanged();
             }
         }
 
-        public double Diameter { get; init; }
+        public double Diameter { get; init; } = 0;
 
         #region INotifyPropertyChanged
 
@@ -70,8 +69,7 @@ namespace TP.ConcurrentProgramming.Presentation.Model
 
         private void NewPositionNotification(object sender, IPosition e)
         {
-            Top = e.y;
-            Left = e.x;
+            Top = e.y; Left = e.x;
         }
 
         private void RaisePropertyChanged([CallerMemberName] string propertyName = "")
@@ -93,4 +91,5 @@ namespace TP.ConcurrentProgramming.Presentation.Model
 
         #endregion testing instrumentation
     }
+
 }

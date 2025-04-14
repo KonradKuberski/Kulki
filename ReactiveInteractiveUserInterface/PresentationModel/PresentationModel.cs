@@ -29,6 +29,7 @@ namespace TP.ConcurrentProgramming.Presentation.Model
             eventObservable = Observable.FromEventPattern<BallChaneEventArgs>(this, "BallChanged");
         }
 
+
         #region ModelAbstractApi
 
         public override void Dispose()
@@ -49,6 +50,7 @@ namespace TP.ConcurrentProgramming.Presentation.Model
             layerBellow.Start(numberOfBalls, StartHandler);
         }
 
+
         #endregion ModelAbstractApi
 
         #region API
@@ -60,14 +62,13 @@ namespace TP.ConcurrentProgramming.Presentation.Model
         #region private
 
         private bool Disposed = false;
-        private readonly IObservable<EventPattern<BallChaneEventArgs>> eventObservable; // Usunięto "= null"
-        private readonly UnderneathLayerAPI layerBellow;
+        private readonly IObservable<EventPattern<BallChaneEventArgs>> eventObservable = null;
+        private readonly UnderneathLayerAPI layerBellow = null;
 
         private void StartHandler(BusinessLogic.IPosition position, BusinessLogic.IBall ball)
         {
-            Debug.WriteLine($"Tworzę kulkę: x={position.x}, y={position.y}");
             ModelBall newBall = new ModelBall(position.x, position.y, ball) { Diameter = 20.0 };
-            BallChanged?.Invoke(this, new BallChaneEventArgs() { Ball = newBall });
+            BallChanged.Invoke(this, new BallChaneEventArgs() { Ball = newBall });
         }
 
         #endregion private
