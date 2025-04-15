@@ -23,7 +23,7 @@ namespace TP.ConcurrentProgramming.Data
         #endregion ctor
 
         #region DataAbstractAPI
-        public override void Start(int numberOfBalls, Action<IVector, IBall> upperLayerHandler)
+        public override void Start(int numberOfBalls, Action<IVector, IBall> upperLayerHandler, double maxX, double maxY)
         {
             if (Disposed)
                 throw new ObjectDisposedException(nameof(DataImplementation));
@@ -46,12 +46,18 @@ namespace TP.ConcurrentProgramming.Data
 
             for (int i = 0; i < numberOfBalls; i++) // Tworzenie kulek, losowanie pozycji i prędkości startowej 
             {
-                Vector startingPosition = new(random.Next(100, 300), random.Next(100, 320)); 
+                double diameter = 20.0; // Średnica kulki
+                double posX = random.Next(50, (int)(maxX - 50 - diameter));
+                double posY = random.Next(50, (int)(maxY - 50 - diameter));
+                Vector startingPosition = new(posX, posY);
                 Vector initialVelocity = possibleVelocities[random.Next(possibleVelocities.Length)];
                 Ball newBall = new(startingPosition, initialVelocity);
+                newBall.SetBoundaries(maxX, maxY); // Ustawiamy granice dla każdej kulki
                 upperLayerHandler(startingPosition, newBall);
                 BallsList.Add(newBall);
             }
+
+            MoveTimer.Change(TimeSpan.Zero, TimeSpan.FromMilliseconds(1));
         }
         #endregion DataAbstractAPI
 
@@ -88,7 +94,7 @@ namespace TP.ConcurrentProgramming.Data
         {
             HandleCollisions();
 
-            foreach (Ball item in BallsList.ToList()) // Iterujemy po kopii listy
+            foreach (Ball item in BallsList.ToList()) 
             {
                 item.Move((Vector)item.Velocity);
             }

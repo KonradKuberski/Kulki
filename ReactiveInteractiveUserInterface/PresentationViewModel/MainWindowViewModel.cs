@@ -39,7 +39,7 @@ namespace TP.ConcurrentProgramming.Presentation.ViewModel
         internal MainWindowViewModel(ModelAbstractApi modelLayerAPI)
         {
             ModelLayer = modelLayerAPI == null ? ModelAbstractApi.CreateModel() : modelLayerAPI;
-            Observer?.Dispose(); // Upewnij się, że poprzednia subskrypcja jest usuwana
+            Observer?.Dispose(); 
             Observer = ModelLayer.Subscribe<ModelIBall>(x => Balls.Add(x));
             StartGameCommand = new StartGameCommandImplementation(this);
         }
@@ -64,7 +64,7 @@ namespace TP.ConcurrentProgramming.Presentation.ViewModel
 
         public ICommand StartGameCommand { get; }
 
-        private class StartGameCommandImplementation : ICommand // Zmiana nazwy klasy
+        private class StartGameCommandImplementation : ICommand 
         {
             private readonly MainWindowViewModel _viewModel;
 
@@ -82,7 +82,7 @@ namespace TP.ConcurrentProgramming.Presentation.ViewModel
                 if (_viewModel.Disposed)
                     throw new ObjectDisposedException(nameof(MainWindowViewModel));
                 _viewModel.Balls.Clear();
-                _viewModel.ModelLayer.Start(_viewModel.InitialBallCount);
+                _viewModel.ModelLayer.Start(_viewModel.InitialBallCount, _viewModel.maxX, _viewModel.maxY);
                 _viewModel.Observer?.Dispose();
                 _viewModel.Observer = _viewModel.ModelLayer.Subscribe<ModelIBall>(x => _viewModel.Balls.Add(x));
             }
@@ -92,8 +92,21 @@ namespace TP.ConcurrentProgramming.Presentation.ViewModel
         {
             if (Disposed)
                 throw new ObjectDisposedException(nameof(MainWindowViewModel));
-            Balls.Clear(); // Opcjonalnie: wyczyść kolekcję, jeśli chcesz zaczynać od zera
-            ModelLayer.Start(numberOfBalls);
+            Balls.Clear(); 
+            ModelLayer.Start(numberOfBalls, maxX, maxY);
+        }
+
+        public void UpdateBoundaries(double maxX, double maxY)
+        {
+            this.maxX = maxX;
+            this.maxY = maxY;
+            if (Balls.Count > 0)
+            {
+                Balls.Clear();
+                ModelLayer.Start(InitialBallCount, maxX, maxY);
+                Observer?.Dispose();
+                Observer = ModelLayer.Subscribe<ModelIBall>(x => Balls.Add(x));
+            }
         }
 
         public ObservableCollection<ModelIBall> Balls { get; } = new ObservableCollection<ModelIBall>();
@@ -131,7 +144,9 @@ namespace TP.ConcurrentProgramming.Presentation.ViewModel
         private IDisposable Observer = null;
         private ModelAbstractApi ModelLayer;
         private bool Disposed = false;
- 
+        private double maxX = 400.0; 
+        private double maxY = 420.0;
+
         #endregion private
     }
 }

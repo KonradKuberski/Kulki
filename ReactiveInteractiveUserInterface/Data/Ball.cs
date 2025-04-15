@@ -18,18 +18,31 @@ namespace TP.ConcurrentProgramming.Data
             PositionBackingField = initialPosition;
             Velocity = initialVelocity;
             Radius = 10.0; // Promień = 10, bo srednica to 20
+            maxX = 392.0 - 2 * Radius; // Domyślne granice
+            maxY = 412.0 - 2 * Radius;
         }
+
+  
         #endregion ctor
 
         #region IBall
         public event EventHandler<IVector>? NewPositionNotification;
         public IVector Velocity { get; set; }
         public IVector Position => PositionBackingField; 
-        public double Radius { get; } 
+        public double Radius { get; }
+
+        public void SetBoundaries(double maxX, double maxY)
+        {
+            this.maxX = maxX - 2 * Radius; // Odejmujemy średnicę, aby kulka nie wychodziła poza ramkę
+            this.maxY = maxY - 2 * Radius;
+        }
+
         #endregion IBall
 
         #region private
         private Vector PositionBackingField;
+        private double maxX; 
+        private double maxY; 
 
         private void RaiseNewPositionChangeNotification()
         {
@@ -41,9 +54,6 @@ namespace TP.ConcurrentProgramming.Data
             double scale = 0.016;
             double newX = PositionBackingField.x + delta.x * scale;
             double newY = PositionBackingField.y + delta.y * scale;
-            double diameter = 2 * Radius;
-            double maxX = 392.0 - diameter; // Ramka ma 400 na 420
-            double maxY = 412.0 - diameter;
             Vector newVelocity = (Vector)Velocity;
 
             if (newX < 0) // Jeśli nowa pozycja kulki wychodziłaby za lewą ściankę, zmieniamy kierunek prędkości, żeby kulka się odbiła
