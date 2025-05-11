@@ -39,7 +39,7 @@ namespace TP.ConcurrentProgramming.Presentation.ViewModel
         internal MainWindowViewModel(ModelAbstractApi modelLayerAPI)
         {
             ModelLayer = modelLayerAPI == null ? ModelAbstractApi.CreateModel() : modelLayerAPI;
-            Observer?.Dispose(); 
+            Observer?.Dispose();
             Observer = ModelLayer.Subscribe<ModelIBall>(x => Balls.Add(x));
             StartGameCommand = new StartGameCommandImplementation(this);
         }
@@ -64,7 +64,7 @@ namespace TP.ConcurrentProgramming.Presentation.ViewModel
 
         public ICommand StartGameCommand { get; }
 
-        private class StartGameCommandImplementation : ICommand 
+        private class StartGameCommandImplementation : ICommand
         {
             private readonly MainWindowViewModel _viewModel;
 
@@ -81,10 +81,15 @@ namespace TP.ConcurrentProgramming.Presentation.ViewModel
             {
                 if (_viewModel.Disposed)
                     throw new ObjectDisposedException(nameof(MainWindowViewModel));
-                _viewModel.Balls.Clear();
-                _viewModel.ModelLayer.Start(_viewModel.InitialBallCount, _viewModel.maxX, _viewModel.maxY);
-                _viewModel.Observer?.Dispose();
-                _viewModel.Observer = _viewModel.ModelLayer.Subscribe<ModelIBall>(x => _viewModel.Balls.Add(x));
+
+                // Uruchom symulację tylko, jeśli liczba kulek jest poprawna
+                if (_viewModel.InitialBallCount > 0)
+                {
+                    _viewModel.Balls.Clear();
+                    _viewModel.ModelLayer.Start(_viewModel.InitialBallCount, _viewModel.maxX, _viewModel.maxY);
+                    _viewModel.Observer?.Dispose();
+                    _viewModel.Observer = _viewModel.ModelLayer.Subscribe<ModelIBall>(x => _viewModel.Balls.Add(x));
+                }
             }
         }
 
@@ -92,7 +97,7 @@ namespace TP.ConcurrentProgramming.Presentation.ViewModel
         {
             if (Disposed)
                 throw new ObjectDisposedException(nameof(MainWindowViewModel));
-            Balls.Clear(); 
+            Balls.Clear();
             ModelLayer.Start(numberOfBalls, maxX, maxY);
         }
 
@@ -144,7 +149,7 @@ namespace TP.ConcurrentProgramming.Presentation.ViewModel
         private IDisposable Observer = null;
         private ModelAbstractApi ModelLayer;
         private bool Disposed = false;
-        private double maxX = 400.0; 
+        private double maxX = 400.0;
         private double maxY = 420.0;
 
         #endregion private

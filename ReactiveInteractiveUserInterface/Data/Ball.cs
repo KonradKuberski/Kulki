@@ -13,23 +13,25 @@ namespace TP.ConcurrentProgramming.Data
     internal class Ball : IBall
     {
         #region ctor
-        internal Ball(Vector initialPosition, Vector initialVelocity)
+        internal Ball(Vector initialPosition, Vector initialVelocity, double mass=1.0)
         {
             PositionBackingField = initialPosition;
             Velocity = initialVelocity;
             Radius = 10.0; // Promień = 10, bo srednica to 20
+            Mass = mass; // #dodanie masy kul
             maxX = 392.0 - 2 * Radius; // Domyślne granice
             maxY = 412.0 - 2 * Radius;
         }
 
-  
+
         #endregion ctor
 
         #region IBall
         public event EventHandler<IVector>? NewPositionNotification;
         public IVector Velocity { get; set; }
-        public IVector Position => PositionBackingField; 
+        public IVector Position => PositionBackingField;
         public double Radius { get; }
+        public double Mass { get; } // Dodanie masy kulki
 
         public void SetBoundaries(double maxX, double maxY)
         {
@@ -41,8 +43,8 @@ namespace TP.ConcurrentProgramming.Data
 
         #region private
         private Vector PositionBackingField;
-        private double maxX; 
-        private double maxY; 
+        private double maxX;
+        private double maxY;
 
         private void RaiseNewPositionChangeNotification()
         {

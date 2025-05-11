@@ -10,6 +10,8 @@
 
 using System;
 using System.Diagnostics;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace TP.ConcurrentProgramming.Data
 {
@@ -18,7 +20,7 @@ namespace TP.ConcurrentProgramming.Data
         #region ctor
         public DataImplementation()
         {
-            MoveTimer = new Timer(Move, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(1));
+            // Inicjalizacja przeniesiona do Start
         }
         #endregion ctor
 
@@ -31,33 +33,49 @@ namespace TP.ConcurrentProgramming.Data
                 throw new ArgumentNullException(nameof(upperLayerHandler));
             Random random = new Random();
 
+            lock (_lockObject)
+            {
+                if (_cancellationTokenSource != null)
+                {
+                    _cancellationTokenSource.Cancel();
+                    _cancellationTokenSource.Dispose();
+                }
+                BallsList.Clear(); // Wyczyść poprzednie kulki
+            }
+
             // Lista wszystkich możliwych kombinacji prędkości (do przemyślenia)
             Vector[] possibleVelocities = new Vector[]
             {
-             new Vector(90.0, 45.0),    
-             new Vector(-90.0, -45.0), 
-             new Vector(90.0, -45.0),   
-             new Vector(-90.0, 45.0),  
-             new Vector(90.0, 45.0),    
-             new Vector(-45.0, -90.0),  
-             new Vector(45.0, -90.0),  
-             new Vector(-45.0, 90.0)    
+                new Vector(90.0, 45.0),
+                new Vector(-90.0, -45.0),
+                new Vector(90.0, -45.0),
+                new Vector(-90.0, 45.0),
+                new Vector(90.0, 45.0),
+                new Vector(-45.0, -90.0),
+                new Vector(45.0, -90.0),
+                new Vector(-45.0, 90.0)
             };
 
-            for (int i = 0; i < numberOfBalls; i++) // Tworzenie kulek, losowanie pozycji i prędkości startowej 
+            for (int i = 0; i < numberOfBalls; i++) // Tworzenie kulek, losowanie pozycji, prędkości startowej i masy
             {
                 double diameter = 20.0; // Średnica kulki
                 double posX = random.Next(50, (int)(maxX - 50 - diameter));
                 double posY = random.Next(50, (int)(maxY - 50 - diameter));
                 Vector startingPosition = new(posX, posY);
                 Vector initialVelocity = possibleVelocities[random.Next(possibleVelocities.Length)];
-                Ball newBall = new(startingPosition, initialVelocity);
+                double mass = 1.0; // Masa kulki
+                Ball newBall = new(startingPosition, initialVelocity, mass);
                 newBall.SetBoundaries(maxX, maxY); // Ustawiamy granice dla każdej kulki
                 upperLayerHandler(startingPosition, newBall);
-                BallsList.Add(newBall);
+                lock (_lockObject) // Synchronizacja przy dodawaniu do listy
+                {
+                    BallsList.Add(newBall);
+                }
             }
 
-            MoveTimer.Change(TimeSpan.Zero, TimeSpan.FromMilliseconds(1));
+            // Uruchamiamy asynchroniczną pętlę ruchu
+            _cancellationTokenSource = new CancellationTokenSource();
+            Task.Run(() => MoveLoop(_cancellationTokenSource.Token), _cancellationTokenSource.Token);
         }
         #endregion DataAbstractAPI
 
@@ -68,8 +86,12 @@ namespace TP.ConcurrentProgramming.Data
             {
                 if (disposing)
                 {
-                    MoveTimer.Dispose();
-                    BallsList.Clear();
+                    _cancellationTokenSource?.Cancel();
+                    _cancellationTokenSource?.Dispose();
+                    lock (_lockObject)
+                    {
+                        BallsList.Clear();
+                    }
                 }
                 Disposed = true;
             }
@@ -86,81 +108,109 @@ namespace TP.ConcurrentProgramming.Data
 
         #region private
         private bool Disposed = false;
-        private readonly Timer MoveTimer;
         private Random RandomGenerator = new();
         private List<Ball> BallsList = [];
+        private CancellationTokenSource _cancellationTokenSource;
+        private readonly object _lockObject = new object();
 
-        private void Move(object? x)
+        private async Task MoveLoop(CancellationToken cancellationToken)
         {
-            HandleCollisions();
-
-            foreach (Ball item in BallsList.ToList()) 
+            try
             {
-                item.Move((Vector)item.Velocity);
+                const int frameDelayMs = 15; // Możliwość konfiguracji opóźnienia
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    await Move();
+                    await Task.Delay(frameDelayMs, cancellationToken);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Logowanie anulowania (opcjonalne)
+                Debug.WriteLine("MoveLoop cancelled.");
+            }
+            catch (Exception ex)
+            {
+                // Obsługa nieoczekiwanych błędów
+                Debug.WriteLine($"MoveLoop error: {ex.Message}");
             }
         }
 
+        private async Task Move()
+        {
+            lock (_lockObject)
+            {
+                HandleCollisions();
+
+                foreach (Ball item in BallsList.ToList()) // Używamy ToList, aby uniknąć modyfikacji kolekcji podczas iteracji
+                {
+                    item.Move((Vector)item.Velocity);
+                }
+            }
+        }
         private void HandleCollisions()
         {
-            for (int i = 0; i < BallsList.Count; i++)
+            lock (_lockObject)
             {
-                for (int j = i + 1; j < BallsList.Count; j++)
+                for (int i = 0; i < BallsList.Count; i++)
                 {
-                    Ball ball1 = BallsList[i] as Ball;
-                    Ball ball2 = BallsList[j] as Ball;
-
-                    if (ball1 == null || ball2 == null) continue;
-
-                    double dx = ball2.Position.x - ball1.Position.x;
-                    double dy = ball2.Position.y - ball1.Position.y;
-                    double distance = Math.Sqrt(dx * dx + dy * dy);
-
-                    // Sprawdzamy, czy kulki się stykają (odległość mniejsza lub równa sumie promieni)
-                    if (distance <= (ball1.Radius + ball2.Radius))
+                    for (int j = i + 1; j < BallsList.Count; j++)
                     {
-                        if (distance == 0) // Unikamy dzielenia przez zero
-                        {
-                            dx = 1.0;
-                            dy = 0.0;
-                            distance = 1.0;
-                        }
-                        double nx = dx / distance;
-                        double ny = dy / distance;
+                        Ball ball1 = BallsList[i];
+                        Ball ball2 = BallsList[j];
 
-                        // Obliczamy względną prędkość
-                        double dvx = ball2.Velocity.x - ball1.Velocity.x;
-                        double dvy = ball2.Velocity.y - ball1.Velocity.y;
+                        lock (ball1) // Synchronizacja na obu kulkach
+                            lock (ball2)
+                            {
+                                double dx = ball2.Position.x - ball1.Position.x;
+                                double dy = ball2.Position.y - ball1.Position.y;
+                                double distance = Math.Sqrt(dx * dx + dy * dy);
 
-                        // Obliczamy składową prędkości wzdłuż wektora kolizji
-                        double dotProduct = dvx * nx + dvy * ny;
+                                // Sprawdzamy, czy kulki się stykają (odległość mniejsza lub równa sumie promieni)
+                                if (distance <= (ball1.Radius + ball2.Radius))
+                                {
+                                    if (distance < 0.00001) // Unikamy dzielenia przez zero
+                                    {
+                                        dx = 1.0;
+                                        dy = 0.0;
+                                        distance = 1.0;
+                                    }
+                                    double nx = dx / distance;
+                                    double ny = dy / distance;
 
-                        // Jeśli kulki zbliżają się do siebie (dotProduct < 0), obliczamy nowe prędkości
-                        if (dotProduct < 0)
-                        {
-                            // Zakładamy, że kulki mają tę samą masę (sprężyste zderzenie)
-                            double impulse = 2 * dotProduct / 2.0; // Dzielimy przez 2, bo masa = 1 dla obu kulek
+                                    // Obliczamy względną prędkość
+                                    double dvx = ball2.Velocity.x - ball1.Velocity.x;
+                                    double dvy = ball2.Velocity.y - ball1.Velocity.y;
 
-                            // Aktualizujemy prędkości
-                            ball1.Velocity = new Vector(
-                              ball1.Velocity.x + impulse * nx,
-                              ball1.Velocity.y + impulse * ny
-                            );
-                            ball2.Velocity = new Vector(
-                              ball2.Velocity.x - impulse * nx,
-                              ball2.Velocity.y - impulse * ny
-                            );
+                                    // Obliczamy składową prędkości wzdłuż wektora kolizji
+                                    double dotProduct = dvx * nx + dvy * ny;
 
-                            // Rozdzielamy kulki, aby się nie skleiły
-                            double overlap = (ball1.Radius + ball2.Radius - distance) / 2;
-                            ball1.UpdatePosition(new Vector(
-                              ball1.Position.x - overlap * nx,
-                              ball1.Position.y - overlap * ny
-                            ));
-                            ball2.UpdatePosition(new Vector(
-                              ball2.Position.x + overlap * nx,
-                              ball2.Position.y + overlap * ny
-                            ));
-                        }
+                                    // Jeśli kulki zbliżają się do siebie (dotProduct < 0), obliczamy nowe prędkości
+                                    if (dotProduct < 0)
+                                    {
+                                        // Upraszczamy, bo masa jest taka sama (m1 = m2 = 1.0)
+                                        ball1.Velocity = new Vector(
+                                            ball1.Velocity.x + dotProduct * nx,
+                                            ball1.Velocity.y + dotProduct * ny
+                                        );
+                                        ball2.Velocity = new Vector(
+                                            ball2.Velocity.x - dotProduct * nx,
+                                            ball2.Velocity.y - dotProduct * ny
+                                        );
+
+                                        // Rozdzielamy kulki, aby się nie skleiły
+                                        double overlap = (ball1.Radius + ball2.Radius - distance) / 2;
+                                        ball1.UpdatePosition(new Vector(
+                                            ball1.Position.x - overlap * nx,
+                                            ball1.Position.y - overlap * ny
+                                        ));
+                                        ball2.UpdatePosition(new Vector(
+                                            ball2.Position.x + overlap * nx,
+                                            ball2.Position.y + overlap * ny
+                                        ));
+                                    }
+                                }
+                            }
                     }
                 }
             }
@@ -171,13 +221,19 @@ namespace TP.ConcurrentProgramming.Data
         [Conditional("DEBUG")]
         internal void CheckBallsList(Action<IEnumerable<IBall>> returnBallsList)
         {
-            returnBallsList(BallsList);
+            lock (_lockObject)
+            {
+                returnBallsList(BallsList);
+            }
         }
 
         [Conditional("DEBUG")]
         internal void CheckNumberOfBalls(Action<int> returnNumberOfBalls)
         {
-            returnNumberOfBalls(BallsList.Count);
+            lock (_lockObject)
+            {
+                returnNumberOfBalls(BallsList.Count);
+            }
         }
 
         [Conditional("DEBUG")]
