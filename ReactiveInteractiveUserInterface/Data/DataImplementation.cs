@@ -1,14 +1,5 @@
-﻿//____________________________________________________________________________________________________________________________________
-//
-//  Copyright (C) 2024, Mariusz Postol LODZ POLAND.
-//
-//  To be in touch join the community by pressing the `Watch` button and get started commenting using the discussion panel at
-//
-//  https://github.com/mpostol/TP/discussions/182
-//
-//_____________________________________________________________________________________________________________________________________
-
-using System;
+﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
@@ -41,9 +32,10 @@ namespace TP.ConcurrentProgramming.Data
                     _cancellationTokenSource.Dispose();
                 }
                 BallsList.Clear(); // Wyczyść poprzednie kulki
+                _ballTasks.Clear(); // Wyczyść zadania
             }
 
-            // Lista wszystkich możliwych kombinacji prędkości (do przemyślenia)
+            // Lista wszystkich możliwych kombinacji prędkości
             Vector[] possibleVelocities = new Vector[]
             {
                 new Vector(90.0, 45.0),
@@ -56,26 +48,26 @@ namespace TP.ConcurrentProgramming.Data
                 new Vector(-45.0, 90.0)
             };
 
-            for (int i = 0; i < numberOfBalls; i++) // Tworzenie kulek, losowanie pozycji, prędkości startowej i masy
+            for (int i = 0; i < numberOfBalls; i++)
             {
-                double diameter = 20.0; // Średnica kulki
+                double diameter = 20.0;
                 double posX = random.Next(50, (int)(maxX - 50 - diameter));
                 double posY = random.Next(50, (int)(maxY - 50 - diameter));
                 Vector startingPosition = new(posX, posY);
                 Vector initialVelocity = possibleVelocities[random.Next(possibleVelocities.Length)];
-                double mass = 1.0; // Masa kulki
+                double mass = 1.0;
                 Ball newBall = new(startingPosition, initialVelocity, mass);
-                newBall.SetBoundaries(maxX, maxY); // Ustawiamy granice dla każdej kulki
+                newBall.SetBoundaries(maxX, maxY);
                 upperLayerHandler(startingPosition, newBall);
-                lock (_lockObject) // Synchronizacja przy dodawaniu do listy
+                lock (_lockObject)
                 {
                     BallsList.Add(newBall);
                 }
             }
 
-            // Uruchamiamy asynchroniczną pętlę ruchu
+            // Uruchamiamy osobne zadania dla każdej kulki
             _cancellationTokenSource = new CancellationTokenSource();
-            Task.Run(() => MoveLoop(_cancellationTokenSource.Token), _cancellationTokenSource.Token);
+            StartBallTasks(_cancellationTokenSource.Token);
         }
         #endregion DataAbstractAPI
 
@@ -91,6 +83,7 @@ namespace TP.ConcurrentProgramming.Data
                     lock (_lockObject)
                     {
                         BallsList.Clear();
+                        _ballTasks.Clear();
                     }
                 }
                 Disposed = true;
@@ -110,44 +103,72 @@ namespace TP.ConcurrentProgramming.Data
         private bool Disposed = false;
         private Random RandomGenerator = new();
         private List<Ball> BallsList = [];
+        private List<Task> _ballTasks = []; // Lista zadań dla każdej kulki
         private CancellationTokenSource _cancellationTokenSource;
         private readonly object _lockObject = new object();
 
-        private async Task MoveLoop(CancellationToken cancellationToken)
+        private void StartBallTasks(CancellationToken cancellationToken)
+        {
+            lock (_lockObject)
+            {
+                foreach (Ball ball in BallsList)
+                {
+                    // Tworzymy osobne zadanie dla każdej kulki
+                    Task ballTask = Task.Run(() => MoveBall(ball, cancellationToken), cancellationToken);
+                    _ballTasks.Add(ballTask);
+                }
+
+                // Uruchamiamy zadanie do obsługi kolizji
+                Task collisionTask = Task.Run(() => CollisionLoop(cancellationToken), cancellationToken);
+                _ballTasks.Add(collisionTask);
+            }
+        }
+
+        private async Task MoveBall(Ball ball, CancellationToken cancellationToken)
         {
             try
             {
-                const int frameDelayMs = 15; // Możliwość konfiguracji opóźnienia
+                const int frameDelayMs = 15;
                 while (!cancellationToken.IsCancellationRequested)
                 {
-                    await Move();
+                    lock (ball) // Synchronizacja na poziomie pojedynczej kulki
+                    {
+                        ball.Move((Vector)ball.Velocity);
+                    }
                     await Task.Delay(frameDelayMs, cancellationToken);
                 }
             }
             catch (OperationCanceledException)
             {
-                // Logowanie anulowania (opcjonalne)
-                Debug.WriteLine("MoveLoop cancelled.");
+                Debug.WriteLine($"MoveBall cancelled for ball at {ball.Position}.");
             }
             catch (Exception ex)
             {
-                // Obsługa nieoczekiwanych błędów
-                Debug.WriteLine($"MoveLoop error: {ex.Message}");
+                Debug.WriteLine($"MoveBall error: {ex.Message}");
             }
         }
 
-        private async Task Move()
+        private async Task CollisionLoop(CancellationToken cancellationToken)
         {
-            lock (_lockObject)
+            try
             {
-                HandleCollisions();
-
-                foreach (Ball item in BallsList.ToList()) // Używamy ToList, aby uniknąć modyfikacji kolekcji podczas iteracji
+                const int collisionCheckDelayMs = 10; // Częstotliwość sprawdzania kolizji
+                while (!cancellationToken.IsCancellationRequested)
                 {
-                    item.Move((Vector)item.Velocity);
+                    HandleCollisions();
+                    await Task.Delay(collisionCheckDelayMs, cancellationToken);
                 }
             }
+            catch (OperationCanceledException)
+            {
+                Debug.WriteLine("CollisionLoop cancelled.");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"CollisionLoop error: {ex.Message}");
+            }
         }
+
         private void HandleCollisions()
         {
             lock (_lockObject)
@@ -159,17 +180,16 @@ namespace TP.ConcurrentProgramming.Data
                         Ball ball1 = BallsList[i];
                         Ball ball2 = BallsList[j];
 
-                        lock (ball1) // Synchronizacja na obu kulkach
+                        lock (ball1)
                             lock (ball2)
                             {
                                 double dx = ball2.Position.x - ball1.Position.x;
                                 double dy = ball2.Position.y - ball1.Position.y;
                                 double distance = Math.Sqrt(dx * dx + dy * dy);
 
-                                // Sprawdzamy, czy kulki się stykają (odległość mniejsza lub równa sumie promieni)
                                 if (distance <= (ball1.Radius + ball2.Radius))
                                 {
-                                    if (distance < 0.00001) // Unikamy dzielenia przez zero
+                                    if (distance < 0.00001)
                                     {
                                         dx = 1.0;
                                         dy = 0.0;
@@ -178,17 +198,12 @@ namespace TP.ConcurrentProgramming.Data
                                     double nx = dx / distance;
                                     double ny = dy / distance;
 
-                                    // Obliczamy względną prędkość
                                     double dvx = ball2.Velocity.x - ball1.Velocity.x;
                                     double dvy = ball2.Velocity.y - ball1.Velocity.y;
-
-                                    // Obliczamy składową prędkości wzdłuż wektora kolizji
                                     double dotProduct = dvx * nx + dvy * ny;
 
-                                    // Jeśli kulki zbliżają się do siebie (dotProduct < 0), obliczamy nowe prędkości
                                     if (dotProduct < 0)
                                     {
-                                        // Upraszczamy, bo masa jest taka sama (m1 = m2 = 1.0)
                                         ball1.Velocity = new Vector(
                                             ball1.Velocity.x + dotProduct * nx,
                                             ball1.Velocity.y + dotProduct * ny
@@ -198,7 +213,6 @@ namespace TP.ConcurrentProgramming.Data
                                             ball2.Velocity.y - dotProduct * ny
                                         );
 
-                                        // Rozdzielamy kulki, aby się nie skleiły
                                         double overlap = (ball1.Radius + ball2.Radius - distance) / 2;
                                         ball1.UpdatePosition(new Vector(
                                             ball1.Position.x - overlap * nx,
