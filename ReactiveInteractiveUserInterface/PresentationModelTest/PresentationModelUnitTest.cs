@@ -73,6 +73,11 @@ namespace TP.ConcurrentProgramming.Presentation.Model.Test
                 Assert.IsNotNull(upperLayerHandler);
             }
 
+            public override TP.ConcurrentProgramming.Data.IDiagnosticDataCollector GetDiagnosticDataCollector()
+            {
+                return null;
+            }
+
             //public override void UpdateBallBoundaries(double maxX, double maxY)
             //{
             //    // Pusta implementacja, ponieważ metoda nie jest używana w teście

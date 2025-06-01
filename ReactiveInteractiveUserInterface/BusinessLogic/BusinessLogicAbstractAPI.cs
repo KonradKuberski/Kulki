@@ -8,6 +8,8 @@
 //
 //_____________________________________________________________________________________________________________________________________
 
+using TP.ConcurrentProgramming.Data;
+
 namespace TP.ConcurrentProgramming.BusinessLogic
 {
     public abstract class BusinessLogicAbstractAPI : IDisposable
@@ -26,6 +28,7 @@ namespace TP.ConcurrentProgramming.BusinessLogic
         public static readonly Dimensions GetDimensions = new(10.0, 10.0, 10.0);
 
         public abstract void Start(int numberOfBalls, Action<IPosition, IBall> upperLayerHandler, double maxX, double maxY);
+        public abstract IDiagnosticDataCollector GetDiagnosticDataCollector();
 
         #region IDisposable
 

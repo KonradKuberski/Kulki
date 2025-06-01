@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Timers;
 
 namespace TP.ConcurrentProgramming.Data
 {
@@ -94,6 +95,19 @@ namespace TP.ConcurrentProgramming.Data
                     {
                         BallsList.Clear();
                         _ballTasks.Clear();
+                        // Zatrzymaj i wyczyść timery
+                        foreach (var timer in _ballTimers)
+                        {
+                            timer.Stop();
+                            timer.Dispose();
+                        }
+                        _ballTimers.Clear();
+                        if (_collisionTimer != null)
+                        {
+                            _collisionTimer.Stop();
+                            _collisionTimer.Dispose();
+                            _collisionTimer = null;
+                        }
                     }
                 }
                 Disposed = true;
@@ -116,6 +130,8 @@ namespace TP.ConcurrentProgramming.Data
         private List<Task> _ballTasks = []; // Lista zadań dla każdej kulki
         private CancellationTokenSource _cancellationTokenSource;
         private readonly object _lockObject = new object();
+        private List<System.Timers.Timer> _ballTimers = new(); // Timery dla każdej kulki
+        private System.Timers.Timer _collisionTimer; // Timer do obsługi kolizji
 
         private void StartBallTasks(CancellationToken cancellationToken)
         {
@@ -123,60 +139,41 @@ namespace TP.ConcurrentProgramming.Data
             {
                 foreach (Ball ball in BallsList)
                 {
-                    // Tworzymy osobne zadanie dla każdej kulki
-                    Task ballTask = Task.Run(() => MoveBall(ball, cancellationToken), cancellationToken);
-                    _ballTasks.Add(ballTask);
+                    //Task ballTask = Task.Run(() => MoveBall(ball, cancellationToken), cancellationToken);
+                    // _ballTasks.Add(ballTask);
+                    StartBallTimer(ball);
                 }
 
-                // Uruchamiamy zadanie do obsługi kolizji
-                Task collisionTask = Task.Run(() => CollisionLoop(cancellationToken), cancellationToken);
-                _ballTasks.Add(collisionTask);
+                //Task collisionTask = Task.Run(() => CollisionLoop(cancellationToken), cancellationToken);
+                // _ballTasks.Add(collisionTask);
+                StartCollisionTimer();
             }
         }
 
-        private async Task MoveBall(Ball ball, CancellationToken cancellationToken)
+        private void StartBallTimer(Ball ball)
         {
-            try
+            var timer = new System.Timers.Timer(16); // 16 ms ~ 60 FPS
+            timer.Elapsed += (sender, e) =>
             {
-                const int frameDelayMs = 15;
-                while (!cancellationToken.IsCancellationRequested)
+                lock (ball)
                 {
-                    lock (ball) // Synchronizacja na poziomie pojedynczej kulki
-                    {
-                        ball.Move((Vector)ball.Velocity);
-                    }
-                    await Task.Delay(frameDelayMs, cancellationToken);
+                    ball.Move((Vector)ball.Velocity);
                 }
-            }
-            catch (OperationCanceledException)
-            {
-                Debug.WriteLine($"MoveBall cancelled for ball at {ball.Position}.");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"MoveBall error: {ex.Message}");
-            }
+            };
+            timer.AutoReset = true;
+            timer.Start();
+            _ballTimers.Add(timer);
         }
 
-        private async Task CollisionLoop(CancellationToken cancellationToken)
+        private void StartCollisionTimer()
         {
-            try
+            _collisionTimer = new System.Timers.Timer(8); // 8 ms
+            _collisionTimer.Elapsed += (sender, e) =>
             {
-                const int collisionCheckDelayMs = 10; // Częstotliwość sprawdzania kolizji
-                while (!cancellationToken.IsCancellationRequested)
-                {
-                    HandleCollisions();
-                    await Task.Delay(collisionCheckDelayMs, cancellationToken);
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                Debug.WriteLine("CollisionLoop cancelled.");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"CollisionLoop error: {ex.Message}");
-            }
+                HandleCollisions();
+            };
+            _collisionTimer.AutoReset = true;
+            _collisionTimer.Start();
         }
 
         private void HandleCollisions()

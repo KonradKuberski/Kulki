@@ -53,12 +53,28 @@ namespace TP.ConcurrentProgramming.Data
     double y { get; init; }
   }
 
-    public interface IBall
-    {
-        event EventHandler<IVector> NewPositionNotification;
-        IVector Velocity { get; set; }
-        IVector Position { get; }
-        double Radius { get; }
-        void SetBoundaries(double maxX, double maxY); 
-    }
+  public interface IBall
+  {
+    event EventHandler<IVector> NewPositionNotification;
+    IVector Velocity { get; set; }
+    IVector Position { get; }
+    double Radius { get; }
+    void SetBoundaries(double maxX, double maxY); 
+  }
+
+  public interface IDiagnosticData
+  {
+    DateTime Timestamp { get; }
+    string EventType { get; }
+    string Description { get; }
+    Dictionary<string, object> Parameters { get; }
+    long ElapsedMilliseconds { get; }
+  }
+
+  public interface IDiagnosticDataCollector
+  {
+    void RegisterEvent(string eventType, string description, Dictionary<string, object> parameters = null);
+    IEnumerable<IDiagnosticData> GetDiagnosticData();
+    void ClearDiagnosticData();
+  }
 }

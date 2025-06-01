@@ -23,6 +23,7 @@
             <Label Content="Początkowa liczba kul:" VerticalAlignment="Center"/>
             <TextBox Width="50" Text="{Binding InitialBallCount, UpdateSourceTrigger=PropertyChanged}" Margin="5"/>
             <Button Content="Rozpocznij grę" Command="{Binding StartGameCommand}" Margin="5"/>
+            <Button Content="Pokaż dane diagnostyczne" Click="ShowDiagnosticData_Click" Margin="5"/>
         </StackPanel>
 
         <!-- Ramka z Canvas -->

@@ -80,6 +80,12 @@ namespace TP.ConcurrentProgramming.PresentationView
             }
         }
 
+        private void ShowDiagnosticData_Click(object sender, RoutedEventArgs e)
+        {
+            var window = new TP.ConcurrentProgramming.PresentationView.DiagnosticDataWindow();
+            window.Show();
+        }
+
         protected override void OnClosed(EventArgs e)
         {
             System.Diagnostics.Debug.WriteLine("MainWindow: OnClosed");
